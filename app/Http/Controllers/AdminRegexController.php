@@ -1,18 +1,11 @@
 <?php namespace App\Http\Controllers;
 
-	use crocodicstudio\crudbooster\helpers\CB;
-    use Illuminate\Support\Facades\Redirect;
-    use Spatie\PdfToImage\Pdf as PdfImage;
-    use thiagoalessio\TesseractOCR\TesseractOCR;
-    use Illuminate\Support\Facades\Request;
-    use Illuminate\Support\Facades\Storage;
-    use Illuminate\Support\Facades\Validator;
-    use Session;
+	use Session;
+	use Request;
 	use DB;
 	use CRUDBooster;
-    use Spatie\PdfToText\Pdf;
 
-    class AdminScanijazahController extends \crocodicstudio\crudbooster\controllers\CBController {
+	class AdminRegexController extends \crocodicstudio\crudbooster\controllers\CBController {
 
 	    public function cbInit() {
 
@@ -32,31 +25,27 @@
 			$this->button_filter = true;
 			$this->button_import = false;
 			$this->button_export = false;
-			$this->table = "scanijazah";
+			$this->table = "regex";
 			# END CONFIGURATION DO NOT REMOVE THIS LINE
 
 			# START COLUMNS DO NOT REMOVE THIS LINE
 			$this->col = [];
-			$this->col[] = ["label"=>"nim","name"=>"nim"];
-			$this->col[] = ["label"=>"jenis_document","name"=>"jenis_document"];
-			$this->col[] = ["label"=>"no_document","name"=>"no_document"];
-			$this->col[] = ["label"=>"file","name"=>"file"];
+			$this->col[] = ["label"=>"name","name"=>"name"];
+			$this->col[] = ["label"=>"title","name"=>"title"];
+			$this->col[] = ["label"=>"regex","name"=>"regex"];
 			# END COLUMNS DO NOT REMOVE THIS LINE
 
 			# START FORM DO NOT REMOVE THIS LINE
 			$this->form = [];
-			$this->form[] = ['label'=>'nim','name'=>'nim','type'=>'text','validation'=>'required|min:1|max:255','width'=>'col-sm-10'];
-			$this->form[] = ['label'=>'jenis document','name'=>'jenis_document','type'=>'text','validation'=>'required','width'=>'col-sm-9'];
-			$this->form[] = ['label'=>'no_document','name'=>'no_document','type'=>'text','validation'=>'required','width'=>'col-sm-9'];
-			$this->form[] = ['label'=>'file','name'=>'file','type'=>'upload','validation'=>'required','width'=>'col-sm-9'];
+			$this->form[] = ['label'=>'Name','name'=>'name','type'=>'text','validation'=>'required|min:1|max:255','width'=>'col-sm-10'];
+			$this->form[] = ['label'=>'Title','name'=>'title','type'=>'text','validation'=>'required','width'=>'col-sm-9'];
+			$this->form[] = ['label'=>'Regex Pattern','name'=>'regex','type'=>'text','validation'=>'required','width'=>'col-sm-10'];
 			# END FORM DO NOT REMOVE THIS LINE
 
 			# OLD START FORM
 			//$this->form = [];
-			//$this->form[] = ['label'=>'nim','name'=>'nim','type'=>'text','validation'=>'required|min:1|max:255','width'=>'col-sm-10'];
-			//$this->form[] = ['label'=>'jenis document','name'=>'jenis_document','type'=>'text','validation'=>'required','width'=>'col-sm-9'];
-			//$this->form[] = ['label'=>'no_document','name'=>'no_document','type'=>'text','validation'=>'required','width'=>'col-sm-9'];
-			//$this->form[] = ['label'=>'file','name'=>'file','type'=>'upload','validation'=>'required','width'=>'col-sm-9'];
+			//$this->form[] = ['label'=>'Name','name'=>'name','type'=>'text','validation'=>'required|min:1|max:255','width'=>'col-sm-10'];
+			//$this->form[] = ['label'=>'Regex Pattern','name'=>'regex','type'=>'text','validation'=>'required','width'=>'col-sm-10'];
 			# OLD END FORM
 
 			/* 
@@ -123,7 +112,7 @@
 	        | 
 	        */
 	        $this->index_button = array();
-            $this->index_button[]= ["label"=>"Multi Page","url"=> CRUDBooster::mainPath("multi"),"icon" => "fa fa-bars"];
+
 
 
 	        /* 
@@ -265,7 +254,7 @@
 	    |
 	    */
 	    public function hook_before_add(&$postdata) {        
-	        echo "oke";
+	        //Your code here
 
 	    }
 
@@ -333,110 +322,6 @@
 
 
 	    //By the way, you can still create your own method in here... :) 
-        public function getAdd() {
-            //Create an Auth
-            if(!CRUDBooster::isCreate() && $this->global_privilege==FALSE || $this->button_add==FALSE) {
-                CRUDBooster::redirect(CRUDBooster::adminPath(),trans("crudbooster.denied_access"));
-            }
 
-            $data = [];
-            $data['document'] = DB::table("regex")->get();
-            $data['page_title'] = 'Add Data';
 
-            //Please use cbView method instead view method from laravel
-            $this->cbView('scan/scan_add_view',$data);
-        }
-
-        /**
-         * @return \Illuminate\Http\RedirectResponse|void
-         * @throws \Spatie\PdfToImage\Exceptions\InvalidFormat
-         * @throws \Spatie\PdfToImage\Exceptions\PdfDoesNotExist
-         * @throws \Spatie\PdfToText\Exceptions\PdfNotFound
-         * @throws \thiagoalessio\TesseractOCR\TesseractOcrException
-         *
-         * Regex no transkrip
-         * [0-9]+/[a-zA-Z]-[a-zA-Z]+/[a-zA-Z]\d-[a-zA-Z]+/[0-9]+
-         *
-         * Regex no Ijazah
-         *
-         * Regex nim
-         * [0-9]{11}
-         *
-         */
-        public function postAddSave()
-        {
-            $post_jenis = Request::input("jenis_document");
-            list($jenis_document,$regex) = explode("#",$post_jenis);
-            if (Request::hasFile('file_ijazah')) {
-                $file = Request::file('file_ijazah');
-                $ext = $file->getClientOriginalExtension();
-
-                $validator = Validator::make([
-                    'extension' => $ext,
-                ], [
-                    'extension' => 'in:pdf,PDF',
-                ]);
-
-                if ($validator->fails()) {
-                    $message = $validator->errors()->all();
-
-                    return redirect()->back()->with(['message' => implode('<br/>', $message), 'message_type' => 'warning']);
-                }
-
-                //$filePath = 'uploads/scan/tmp/'.CB::myId().'/'.date('Y-m');
-                $filePath = 'uploads/scan/tmp';
-                Storage::makeDirectory($filePath);
-
-                //Move file to storage
-                $filename = md5(str_random(5)).'.'.$ext;
-                $url_filename = '';
-                if (Storage::putFileAs($filePath, $file, $filename)) {
-                    $url_filename = $filePath.'/'.$filename;
-                }
-
-                $text = (new Pdf('/usr/local/bin/pdftotext'))
-                    ->setPdf(Storage::path($url_filename))
-                    ->text();
-
-                if(!$text){
-                    $png_filename = str_replace(".pdf",".png",$url_filename);
-                    $pdf = new PdfImage(Storage::path($url_filename));
-                    $pdf->setOutputFormat('png');
-                    $pdf->saveImage(Storage::path($png_filename));
-                    $text_orc = (new TesseractOCR(Storage::path($png_filename)))
-                        ->run();
-                    preg_match('/[0-9]{11}/', $text_orc, $out);
-                    $v_regex = "/".$regex."/i";
-                    preg_match($v_regex, $text_orc, $no_document);
-                    $pdf_name = $filePath.'/'.$out[0].".pdf";
-                    Storage::move($url_filename,$pdf_name);
-                    Storage::delete($png_filename);
-                    DB::table("scanijazah")->insert(["nim" => $out[0], "jenis_document" => $jenis_document, "no_document" => $no_document[0],"file" => $url_filename  ]);
-
-                    return CRUDBooster::redirect(CRUDBooster::mainPath(), trans('crudbooster.alert_success'));
-
-                }else{
-                    preg_match('/[0-9]{11}/', $text, $out);
-                    $pdf_name = $filePath.'/'.$out[0].".pdf";
-                    Storage::move($url_filename,$pdf_name);
-                }
-//
-
-                //$url = CRUDBooster::mainpath('import-data').'?file='.base64_encode($url_filename);
-
-                //return redirect($url);
-            } else {
-                return redirect()->back();
-            }
-        }
-
-        public function getMulti()
-        {
-            $data = [];
-            $data['page_title'] = 'Add Data';
-
-            //Please use cbView method instead view method from laravel
-            $this->cbView('scan/scan_add_view',$data);
-        }
-
-    }
+	}

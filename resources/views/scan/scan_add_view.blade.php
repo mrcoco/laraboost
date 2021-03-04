@@ -7,7 +7,14 @@
         <form method='post' action='{{CRUDBooster::mainpath('add-save')}}' enctype="multipart/form-data">
             <input type="hidden" name="_token" value="{{ csrf_token() }}"/>
         <div class='panel-body'>
-
+            <div class='form-group'>
+                <label>Jenis Document</label>
+                <select class="form-control" name="jenis_document">
+                    @foreach($document as $field_name)
+                        <option value = "{{ $field_name->id }}#{{ $field_name->regex }}" selected >{{ $field_name->name }}</option>
+                    @endforeach
+                </select>
+            </div>
                 <div class='form-group'>
                     <label>Upload File Ijazah</label>
                     <input type='file' name='file_ijazah' required class='form-control'/>
