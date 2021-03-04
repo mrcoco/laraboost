@@ -1,11 +1,17 @@
 <?php namespace App\Http\Controllers;
 
-	use Illuminate\Support\Facades\Request;
+	use crocodicstudio\crudbooster\helpers\CB;
+	use Spatie\PdfToImage\Pdf as PdfImage;
+    use thiagoalessio\TesseractOCR\TesseractOCR;
+    use Illuminate\Support\Facades\Request;
+    use Illuminate\Support\Facades\Storage;
+    use Illuminate\Support\Facades\Validator;
     use Session;
 	use DB;
 	use CRUDBooster;
+    use Spatie\PdfToText\Pdf;
 
-	class AdminScanijazahController extends \crocodicstudio\crudbooster\controllers\CBController {
+    class AdminScanijazahController extends \crocodicstudio\crudbooster\controllers\CBController {
 
 	    public function cbInit() {
 
@@ -342,7 +348,66 @@
 
         public function postAddSave()
         {
-            echo "lolol";
+            if (Request::hasFile('file_ijazah')) {
+                $file = Request::file('file_ijazah');
+                $ext = $file->getClientOriginalExtension();
+
+                $validator = Validator::make([
+                    'extension' => $ext,
+                ], [
+                    'extension' => 'in:pdf,PDF',
+                ]);
+
+                if ($validator->fails()) {
+                    $message = $validator->errors()->all();
+
+                    return redirect()->back()->with(['message' => implode('<br/>', $message), 'message_type' => 'warning']);
+                }
+
+                //$filePath = 'uploads/scan/tmp/'.CB::myId().'/'.date('Y-m');
+                $filePath = 'uploads/scan/tmp/';
+                Storage::makeDirectory($filePath);
+
+                //Move file to storage
+                $filename = md5(str_random(5)).'.'.$ext;
+                $url_filename = '';
+                if (Storage::putFileAs($filePath, $file, $filename)) {
+                    $url_filename = $filePath.'/'.$filename;
+                }
+
+                $text = (new Pdf('/usr/local/bin/pdftotext'))
+                    ->setPdf(Storage::path($url_filename))
+                    ->text();
+
+
+                if(!$text){
+                    $png_filename = str_replace(".pdf",".png",$url_filename);
+                    $pdf = new PdfImage(Storage::path($url_filename));
+                    $pdf->setOutputFormat('png');
+                    $pdf->saveImage(Storage::path($png_filename));
+                    $text_orc = (new TesseractOCR(Storage::path($png_filename)))
+                        ->run();
+
+                    preg_match('/[0-9][+-]?[0-9]{1,11}[0-9]/', $text_orc, $out);
+                    $pdf_name = $filePath.'/'.$out[0].".pdf";
+                    Storage::move($url_filename,$pdf_name);
+                    print_r($out);
+                    echo "<br>";
+                    echo $text_orc;
+
+                }else{
+                    preg_match('/[0-9][+-]?[0-9]{1,11}[0-9]/', $text, $out);
+                    $pdf_name = $filePath.'/'.$out[0].".pdf";
+                    Storage::move($url_filename,$pdf_name);
+                }
+//
+
+                //$url = CRUDBooster::mainpath('import-data').'?file='.base64_encode($url_filename);
+
+                //return redirect($url);
+            } else {
+                return redirect()->back();
+            }
         }
 
         public function getMulti()
