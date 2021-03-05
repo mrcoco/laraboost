@@ -1,7 +1,10 @@
 <?php namespace App\Http\Controllers;
 
-	use crocodicstudio\crudbooster\helpers\CB;
+	use App\Lib\PDFSplitter;
+    use crocodicstudio\crudbooster\helpers\CB;
     use Illuminate\Support\Facades\Redirect;
+    use Imagick;
+    use setasign\Fpdi\Fpdi;
     use Spatie\PdfToImage\Pdf as PdfImage;
     use thiagoalessio\TesseractOCR\TesseractOCR;
     use Illuminate\Support\Facades\Request;
@@ -24,7 +27,7 @@
 			$this->button_table_action = true;
 			$this->button_bulk_action = true;
 			$this->button_action_style = "button_icon";
-			$this->button_add = true;
+			$this->button_add = false;
 			$this->button_edit = true;
 			$this->button_delete = true;
 			$this->button_detail = true;
@@ -123,7 +126,8 @@
 	        | 
 	        */
 	        $this->index_button = array();
-            $this->index_button[]= ["label"=>"Multi Page","url"=> CRUDBooster::mainPath("multi"),"icon" => "fa fa-bars"];
+            $this->index_button[]= ["label"=>"add","url"=> "javascript:addScan()","icon" => "fa fa-bars"];
+            $this->index_button[]= ["label"=>"Multi Page","url"=> "javascript:addMultiPageScan()","icon" => "fa fa-bars"];
 
 
 	        /* 
@@ -156,7 +160,18 @@
 	        | $this->script_js = "function() { ... }";
 	        |
 	        */
-	        $this->script_js = NULL;
+	        $this->script_js = '
+	        function addScan(){
+	            $("#modal-add").modal("show");
+	        }
+	        
+	        function addMultiPageScan(){
+	            $("#modal-add-multi").modal("show");
+	        }
+	        
+	        ';
+
+
 
 
             /*
@@ -179,8 +194,9 @@
 	        | $this->post_index_html = "<p>test</p>";
 	        |
 	        */
-	        $this->post_index_html = null;
-	        
+	        $this->post_index_html = view('scan/scan_add_view',["document" => DB::table("regex")->get(['id','name','regex'])])->render();
+
+
 	        
 	        
 	        /*
@@ -340,7 +356,7 @@
             }
 
             $data = [];
-            $data['document'] = DB::table("regex")->get();
+            $data['document'] = DB::table("regex")->get(['id','name','regex']);
             $data['page_title'] = 'Add Data';
 
             //Please use cbView method instead view method from laravel
@@ -433,10 +449,59 @@
         public function getMulti()
         {
             $data = [];
-            $data['page_title'] = 'Add Data';
+            $data['page_title'] = 'Add Multiple Pages';
+            $data['document'] = DB::table("regex")->get(['id','name','regex']);
 
             //Please use cbView method instead view method from laravel
-            $this->cbView('scan/scan_add_view',$data);
+            $this->cbView('scan/scan_multi_view',$data);
+        }
+
+        public function postAddMulti()
+        {
+
+            $chunk = Request::input("page");
+            $post_jenis = Request::input("jenis_document");
+            list($jenis_document,$regex) = explode("#",$post_jenis);
+            if (Request::hasFile('file_ijazah')) {
+                $file = Request::file('file_ijazah');
+                $ext = $file->getClientOriginalExtension();
+
+                $validator = Validator::make([
+                    'extension' => $ext,
+                ], [
+                    'extension' => 'in:pdf,PDF',
+                ]);
+
+                if ($validator->fails()) {
+                    $message = $validator->errors()->all();
+
+                    return redirect()->back()->with(['message' => implode('<br/>', $message), 'message_type' => 'warning']);
+                }
+
+                $filePath = 'uploads/scan/tmp';
+                $fileDest = 'uploads/scan/desc';
+                Storage::makeDirectory($filePath);
+
+                //Move file to storage
+                $filename = md5(str_random(5)).'.'.$ext;
+                $url_filename = '';
+                if (Storage::putFileAs($filePath, $file, $filename)) {
+                    $url_filename = $filePath.'/'.$filename;
+                }
+
+
+                $pdf = new Fpdi();
+                $count = $pdf->setSourceFile(Storage::path($url_filename));
+                $pdf->AddPage();
+                $pdf->useTemplate($pdf->importPage(1));
+                $pdf->AddPage();
+                $pdf->useTemplate($pdf->importPage(2));
+                $pdf->Output(Storage::path("uploads/scan/ii.pdf") ,"F");
+
+
+            } else {
+                return redirect()->back();
+            }
         }
 
     }
