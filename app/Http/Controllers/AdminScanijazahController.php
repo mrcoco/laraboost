@@ -1,6 +1,7 @@
 <?php namespace App\Http\Controllers;
 
-	use App\Lib\PDFSplitter;
+	use App\Jobs\SplitDocument;
+    use App\Lib\PDFSplitter;
     use crocodicstudio\crudbooster\helpers\CB;
     use Illuminate\Support\Facades\Redirect;
     use Imagick;
@@ -34,7 +35,7 @@
 			$this->button_show = true;
 			$this->button_filter = true;
 			$this->button_import = false;
-			$this->button_export = false;
+			$this->button_export = true;
 			$this->table = "scanijazah";
 			# END CONFIGURATION DO NOT REMOVE THIS LINE
 
@@ -364,11 +365,6 @@
         }
 
         /**
-         * @return \Illuminate\Http\RedirectResponse|void
-         * @throws \Spatie\PdfToImage\Exceptions\InvalidFormat
-         * @throws \Spatie\PdfToImage\Exceptions\PdfDoesNotExist
-         * @throws \Spatie\PdfToText\Exceptions\PdfNotFound
-         * @throws \thiagoalessio\TesseractOCR\TesseractOcrException
          *
          * Regex no transkrip
          * [0-9]+/[a-zA-Z]-[a-zA-Z]+/[a-zA-Z]\d-[a-zA-Z]+/[0-9]+
@@ -398,45 +394,22 @@
 
                     return redirect()->back()->with(['message' => implode('<br/>', $message), 'message_type' => 'warning']);
                 }
-
-                //$filePath = 'uploads/scan/tmp/'.CB::myId().'/'.date('Y-m');
+                //return $this->renameFile($ext, $file, $regex, $jenis_document);
                 $filePath = 'uploads/scan/tmp';
+                $fileDest = 'uploads/scan/desc';
                 Storage::makeDirectory($filePath);
+                Storage::makeDirectory($fileDest);
 
                 //Move file to storage
-                $filename = md5(str_random(5)).'.'.$ext;
+                $filename = md5(str_random(5)) . '.' . $ext;
                 $url_filename = '';
                 if (Storage::putFileAs($filePath, $file, $filename)) {
-                    $url_filename = $filePath.'/'.$filename;
+                    $url_filename = $filePath . '/' . $filename;
                 }
 
-                $text = (new Pdf('/usr/local/bin/pdftotext'))
-                    ->setPdf(Storage::path($url_filename))
-                    ->text();
+                SplitDocument::dispatch($url_filename,$regex,$jenis_document);
 
-                if(!$text){
-                    $png_filename = str_replace(".pdf",".png",$url_filename);
-                    $pdf = new PdfImage(Storage::path($url_filename));
-                    $pdf->setOutputFormat('png');
-                    $pdf->saveImage(Storage::path($png_filename));
-                    $text_orc = (new TesseractOCR(Storage::path($png_filename)))
-                        ->run();
-                    preg_match('/[0-9]{11}/', $text_orc, $out);
-                    $v_regex = "/".$regex."/i";
-                    preg_match($v_regex, $text_orc, $no_document);
-                    $pdf_name = $filePath.'/'.$out[0].".pdf";
-                    Storage::move($url_filename,$pdf_name);
-                    Storage::delete($png_filename);
-                    DB::table("scanijazah")->insert(["nim" => $out[0], "jenis_document" => $jenis_document, "no_document" => $no_document[0],"file" => $url_filename  ]);
-
-                    return CRUDBooster::redirect(CRUDBooster::mainPath(), trans('crudbooster.alert_success'));
-
-                }else{
-                    preg_match('/[0-9]{11}/', $text, $out);
-                    $pdf_name = $filePath.'/'.$out[0].".pdf";
-                    Storage::move($url_filename,$pdf_name);
-                }
-//
+                return CRUDBooster::redirect(CRUDBooster::mainPath(), trans('crudbooster.alert_success'));
 
                 //$url = CRUDBooster::mainpath('import-data').'?file='.base64_encode($url_filename);
 
@@ -502,6 +475,59 @@
             } else {
                 return redirect()->back();
             }
+        }
+
+        /**
+         * @param $ext
+         * @param $file
+         * @param string $regex
+         * @param string $jenis_document
+         * @return array
+         * @throws \Spatie\PdfToImage\Exceptions\InvalidFormat
+         * @throws \Spatie\PdfToImage\Exceptions\PdfDoesNotExist
+         * @throws \Spatie\PdfToText\Exceptions\PdfNotFound
+         * @throws \thiagoalessio\TesseractOCR\TesseractOcrException
+         */
+        public function renameFile($ext, $file, string $regex, string $jenis_document): array
+        {
+        //$filePath = 'uploads/scan/tmp/'.CB::myId().'/'.date('Y-m');
+            $filePath = 'uploads/scan/tmp';
+            Storage::makeDirectory($filePath);
+
+            //Move file to storage
+            $filename = md5(str_random(5)) . '.' . $ext;
+            $url_filename = '';
+            if (Storage::putFileAs($filePath, $file, $filename)) {
+                $url_filename = $filePath . '/' . $filename;
+            }
+
+            $text = (new Pdf('/usr/local/bin/pdftotext'))
+                ->setPdf(Storage::path($url_filename))
+                ->text();
+
+            if (!$text) {
+                $png_filename = str_replace(".pdf", ".png", $url_filename);
+                $pdf = new PdfImage(Storage::path($url_filename));
+                $pdf->setOutputFormat('png');
+                $pdf->saveImage(Storage::path($png_filename));
+                $text_orc = (new TesseractOCR(Storage::path($png_filename)))
+                    ->run();
+                preg_match('/[0-9]{11}/', $text_orc, $out);
+                $v_regex = "/" . $regex . "/i";
+                preg_match($v_regex, $text_orc, $no_document);
+                $pdf_name = $filePath . '/' . $out[0] . ".pdf";
+                Storage::move($url_filename, $pdf_name);
+                Storage::delete($png_filename);
+                DB::table("scanijazah")->insert(["nim" => $out[0], "jenis_document" => $jenis_document, "no_document" => $no_document[0], "file" => $url_filename]);
+
+                return CRUDBooster::redirect(CRUDBooster::mainPath(), trans('crudbooster.alert_success'));
+
+            } else {
+                preg_match('/[0-9]{11}/', $text, $out);
+                $pdf_name = $filePath . '/' . $out[0] . ".pdf";
+                Storage::move($url_filename, $pdf_name);
+            }
+            return array($out, $no_document);
         }
 
     }
