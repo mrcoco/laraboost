@@ -10,10 +10,9 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Spatie\PdfToImage\Pdf as PdfImage;
-use Spatie\PdfToText\Pdf;
 use thiagoalessio\TesseractOCR\TesseractOCR;
 
-class SplitDocument implements ShouldQueue
+class RenameFile implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -24,7 +23,9 @@ class SplitDocument implements ShouldQueue
     /**
      * Create a new job instance.
      *
-     * @return void
+     * @param $url_filename
+     * @param string $regex
+     * @param string $jenis_document
      */
     public function __construct($url_filename, string $regex, string $jenis_document)
     {
@@ -36,9 +37,9 @@ class SplitDocument implements ShouldQueue
     /**
      * Execute the job.
      *
-     * @return void
+     * @return string
      */
-    public function handle()
+    public function handle(): string
     {
         $rename = new \App\Lib\RenameFile($this->url_filename,$this->regex,$this->jenis_document);
         return $rename->run();

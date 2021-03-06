@@ -1,6 +1,7 @@
 <?php namespace App\Http\Controllers;
 
-	use App\Jobs\SplitDocument;
+	use App\Jobs\RenameFile;
+    use App\Jobs\SplitDocument;
     use App\Lib\PDFSplitter;
     use crocodicstudio\crudbooster\helpers\CB;
     use Illuminate\Support\Facades\Redirect;
@@ -394,7 +395,7 @@
 
                     return redirect()->back()->with(['message' => implode('<br/>', $message), 'message_type' => 'warning']);
                 }
-                //return $this->renameFile($ext, $file, $regex, $jenis_document);
+
                 $filePath = 'uploads/scan/tmp';
                 $fileDest = 'uploads/scan/desc';
                 Storage::makeDirectory($filePath);
@@ -407,7 +408,7 @@
                     $url_filename = $filePath . '/' . $filename;
                 }
 
-                SplitDocument::dispatch($url_filename,$regex,$jenis_document);
+                RenameFile::dispatch($url_filename,$regex,$jenis_document);
 
                 return CRUDBooster::redirect(CRUDBooster::mainPath(), trans('crudbooster.alert_success'));
 
