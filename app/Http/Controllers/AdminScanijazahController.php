@@ -431,7 +431,7 @@
             $this->cbView('scan/scan_multi_view',$data);
         }
 
-        public function postAddMulti(Request $request)
+        public function postAddMulti()
         {
             $page = Request::input("page");
             $post_jenis = Request::input("jenis_document");
@@ -464,30 +464,9 @@
                     $url_filename = $filePath.'/'.$filename;
                 }
 
-                $pdf = new Fpdi();
-                $count = $pdf->setSourceFile(Storage::path($url_filename));
-                $pages = range(1,$count);
-                $chunk = collect($pages)->chunk($page)->toArray();
-                $arr_file =[];
+                $split = new \App\Lib\SplitDocument($url_filename, $page, $fileDest, $regex, $jenis_document);
+                $split->run();
 
-                foreach ($chunk as $k => $v){
-                    $new_pdf = new Fpdi();
-                    $new_pdf->setSourceFile(Storage::path($url_filename));
-                    foreach ($v as $i){
-                        $new_pdf->AddPage();
-                        $new_pdf->useTemplate($new_pdf->importPage($i));
-                    }
-                    $new_pdf_name = $fileDest."/".$k.".pdf";
-                    $new_pdf->Output( Storage::path($new_pdf_name),"F");
-                    $arr_file[] = $new_pdf_name;
-                }
-                foreach ($arr_file as $key => $value){
-                    if(File::exists(Storage::path($value))){
-                        RenameFile::dispatch($value,$regex,$jenis_document);
-                    }
-
-                }
-                Storage::delete($url_filename);
                 return CRUDBooster::redirect(CRUDBooster::mainPath(), trans('crudbooster.alert_success'));
 
             } else {
