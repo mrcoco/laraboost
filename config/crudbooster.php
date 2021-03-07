@@ -34,7 +34,7 @@ return [
 
     'IMAGE_EXTENSIONS' => 'jpg,png,jpeg,gif,bmp',
 
-    'MAIN_DB_DATABASE' => env('DB_SCHEMA','public'),
+    'MAIN_DB_DATABASE' => env('CB_DATABASE','public'),
 
     //'MAIN_DB_DATABASE' => env('DB_DATABASE'), //Very useful if you use config:cache
 

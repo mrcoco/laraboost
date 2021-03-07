@@ -37,9 +37,8 @@ class RenameFile implements ShouldQueue
     /**
      * Execute the job.
      *
-     * @return string
      */
-    public function handle(): string
+    public function handle()
     {
         $rename = new \App\Lib\RenameFile($this->url_filename,$this->regex,$this->jenis_document);
         return $rename->run();

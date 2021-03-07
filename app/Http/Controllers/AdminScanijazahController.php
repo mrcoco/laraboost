@@ -4,6 +4,7 @@
     use App\Jobs\SplitDocument;
     use App\Lib\PDFSplitter;
     use crocodicstudio\crudbooster\helpers\CB;
+    use Illuminate\Support\Facades\File;
     use Illuminate\Support\Facades\Redirect;
     use Imagick;
     use setasign\Fpdi\Fpdi;
@@ -43,7 +44,7 @@
 			# START COLUMNS DO NOT REMOVE THIS LINE
 			$this->col = [];
 			$this->col[] = ["label"=>"nim","name"=>"nim"];
-			$this->col[] = ["label"=>"jenis_document","name"=>"jenis_document"];
+			$this->col[] = ["label"=>"jenis_document","name"=>"jenis_document","join"=>"regex,name"];
 			$this->col[] = ["label"=>"no_document","name"=>"no_document"];
 			$this->col[] = ["label"=>"file","name"=>"file"];
 			# END COLUMNS DO NOT REMOVE THIS LINE
@@ -397,7 +398,7 @@
                 }
 
                 $filePath = 'uploads/scan/tmp';
-                $fileDest = 'uploads/scan/desc';
+                $fileDest = 'uploads/scan/desc/'.$jenis_document;
                 Storage::makeDirectory($filePath);
                 Storage::makeDirectory($fileDest);
 
@@ -430,10 +431,9 @@
             $this->cbView('scan/scan_multi_view',$data);
         }
 
-        public function postAddMulti()
+        public function postAddMulti(Request $request)
         {
-
-            $chunk = Request::input("page");
+            $page = Request::input("page");
             $post_jenis = Request::input("jenis_document");
             list($jenis_document,$regex) = explode("#",$post_jenis);
             if (Request::hasFile('file_ijazah')) {
@@ -453,8 +453,9 @@
                 }
 
                 $filePath = 'uploads/scan/tmp';
-                $fileDest = 'uploads/scan/desc';
+                $fileDest = 'uploads/scan/split/'.$jenis_document;
                 Storage::makeDirectory($filePath);
+                Storage::makeDirectory($fileDest);
 
                 //Move file to storage
                 $filename = md5(str_random(5)).'.'.$ext;
@@ -463,72 +464,35 @@
                     $url_filename = $filePath.'/'.$filename;
                 }
 
-
                 $pdf = new Fpdi();
                 $count = $pdf->setSourceFile(Storage::path($url_filename));
-                $pdf->AddPage();
-                $pdf->useTemplate($pdf->importPage(1));
-                $pdf->AddPage();
-                $pdf->useTemplate($pdf->importPage(2));
-                $pdf->Output(Storage::path("uploads/scan/ii.pdf") ,"F");
+                $pages = range(1,$count);
+                $chunk = collect($pages)->chunk($page)->toArray();
+                $arr_file =[];
 
+                foreach ($chunk as $k => $v){
+                    $new_pdf = new Fpdi();
+                    $new_pdf->setSourceFile(Storage::path($url_filename));
+                    foreach ($v as $i){
+                        $new_pdf->AddPage();
+                        $new_pdf->useTemplate($new_pdf->importPage($i));
+                    }
+                    $new_pdf_name = $fileDest."/".$k.".pdf";
+                    $new_pdf->Output( Storage::path($new_pdf_name),"F");
+                    $arr_file[] = $new_pdf_name;
+                }
+                foreach ($arr_file as $key => $value){
+                    if(File::exists(Storage::path($value))){
+                        RenameFile::dispatch($value,$regex,$jenis_document);
+                    }
+
+                }
+                Storage::delete($url_filename);
+                return CRUDBooster::redirect(CRUDBooster::mainPath(), trans('crudbooster.alert_success'));
 
             } else {
                 return redirect()->back();
             }
-        }
-
-        /**
-         * @param $ext
-         * @param $file
-         * @param string $regex
-         * @param string $jenis_document
-         * @return array
-         * @throws \Spatie\PdfToImage\Exceptions\InvalidFormat
-         * @throws \Spatie\PdfToImage\Exceptions\PdfDoesNotExist
-         * @throws \Spatie\PdfToText\Exceptions\PdfNotFound
-         * @throws \thiagoalessio\TesseractOCR\TesseractOcrException
-         */
-        public function renameFile($ext, $file, string $regex, string $jenis_document): array
-        {
-        //$filePath = 'uploads/scan/tmp/'.CB::myId().'/'.date('Y-m');
-            $filePath = 'uploads/scan/tmp';
-            Storage::makeDirectory($filePath);
-
-            //Move file to storage
-            $filename = md5(str_random(5)) . '.' . $ext;
-            $url_filename = '';
-            if (Storage::putFileAs($filePath, $file, $filename)) {
-                $url_filename = $filePath . '/' . $filename;
-            }
-
-            $text = (new Pdf('/usr/local/bin/pdftotext'))
-                ->setPdf(Storage::path($url_filename))
-                ->text();
-
-            if (!$text) {
-                $png_filename = str_replace(".pdf", ".png", $url_filename);
-                $pdf = new PdfImage(Storage::path($url_filename));
-                $pdf->setOutputFormat('png');
-                $pdf->saveImage(Storage::path($png_filename));
-                $text_orc = (new TesseractOCR(Storage::path($png_filename)))
-                    ->run();
-                preg_match('/[0-9]{11}/', $text_orc, $out);
-                $v_regex = "/" . $regex . "/i";
-                preg_match($v_regex, $text_orc, $no_document);
-                $pdf_name = $filePath . '/' . $out[0] . ".pdf";
-                Storage::move($url_filename, $pdf_name);
-                Storage::delete($png_filename);
-                DB::table("scanijazah")->insert(["nim" => $out[0], "jenis_document" => $jenis_document, "no_document" => $no_document[0], "file" => $url_filename]);
-
-                return CRUDBooster::redirect(CRUDBooster::mainPath(), trans('crudbooster.alert_success'));
-
-            } else {
-                preg_match('/[0-9]{11}/', $text, $out);
-                $pdf_name = $filePath . '/' . $out[0] . ".pdf";
-                Storage::move($url_filename, $pdf_name);
-            }
-            return array($out, $no_document);
         }
 
     }

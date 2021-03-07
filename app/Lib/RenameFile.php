@@ -25,7 +25,7 @@ class RenameFile
     public function run()
     {
         $filePath = 'uploads/scan/tmp';
-        $fileDest = 'uploads/scan/desc';
+        $fileDest = 'uploads/scan/desc/'.$this->jenis_document;
         $png_filename = str_replace(".pdf", ".png", $this->url_filename);
         $pdf = new PdfImage(Storage::path($this->url_filename));
         $pdf->setOutputFormat('png');
@@ -37,18 +37,9 @@ class RenameFile
         //$v_regex = "/[0-9]+\/[0-9]+\/[a-zA-Z][0-9]+\/[a-zA-Z0-9]+\/[0-9]+/i";
         preg_match($v_regex, $text_orc, $no_document);
         $pdf_name = $fileDest . '/' . $out[0] . ".pdf";
-
-        Storage::put("uploads/".$out."txt",$text_orc);
-
-        //Storage::move($this->url_filename, $pdf_name);
-        //Storage::delete($png_filename);
-
-        $insert = DB::table("scanijazah")->insert(["nim" => $out[0], "jenis_document" => $this->jenis_document, "no_document" => $no_document[0], "file" => $pdf_name]);
-        if(!$insert){
-            return "error";
-        }else{
-            return "oke";
-        }
+        Storage::move($this->url_filename, $pdf_name);
+        Storage::delete($png_filename);
+        DB::table("scanijazah")->insert(["nim" => $out[0], "jenis_document" => $this->jenis_document, "no_document" => $no_document[0], "file" => $pdf_name]);
     }
 
 }
