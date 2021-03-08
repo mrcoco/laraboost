@@ -4,6 +4,7 @@
 namespace App\Lib;
 
 
+use crocodicstudio\crudbooster\helpers\CRUDBooster;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Spatie\PdfToImage\Pdf as PdfImage;
@@ -37,9 +38,17 @@ class RenameFile
         //$v_regex = "/[0-9]+\/[0-9]+\/[a-zA-Z][0-9]+\/[a-zA-Z0-9]+\/[0-9]+/i";
         preg_match($v_regex, $text_orc, $no_document);
         $pdf_name = $fileDest . '/' . $out[0] . ".pdf";
-        Storage::move($this->url_filename, $pdf_name);
-        Storage::delete($png_filename);
-        DB::table("scanijazah")->insert(["nim" => $out[0], "jenis_document" => $this->jenis_document, "no_document" => $no_document[0], "file" => $pdf_name]);
+        if($out){
+            Storage::move($this->url_filename, $pdf_name);
+            Storage::delete($png_filename);
+            DB::table("scanijazah")->insert(["nim" => $out[0], "jenis_document" => $this->jenis_document, "no_document" => $no_document[0], "file" => $pdf_name]);
+
+            $config['content'] = "Documen dengan N0: ".$no_document[0]." milik NIM: ".$out[0]." Sudah Berhasil diUpload";
+            $config['to'] = CRUDBooster::adminPath('scanijazah');
+            $config['id_cms_users'] = [1,2,3,4,5]; //This is an array of id users
+            CRUDBooster::sendNotification($config);
+        }
+
     }
 
 }
