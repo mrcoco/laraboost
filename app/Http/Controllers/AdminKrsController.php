@@ -1,24 +1,13 @@
 <?php namespace App\Http\Controllers;
 
-	use App\Jobs\RenameFile;
-    use App\Jobs\SplitDocument;
-    use App\Lib\PDFSplitter;
-    use crocodicstudio\crudbooster\helpers\CB;
-    use Illuminate\Support\Facades\File;
-    use Illuminate\Support\Facades\Redirect;
-    use Imagick;
-    use setasign\Fpdi\Fpdi;
-    use Spatie\PdfToImage\Pdf as PdfImage;
-    use thiagoalessio\TesseractOCR\TesseractOCR;
-    use Illuminate\Support\Facades\Request;
+	use App\Jobs\InsertKrs;
     use Illuminate\Support\Facades\Storage;
-    use Illuminate\Support\Facades\Validator;
     use Session;
+	use Request;
 	use DB;
 	use CRUDBooster;
-    use Spatie\PdfToText\Pdf;
 
-    class AdminScanijazahController extends \crocodicstudio\crudbooster\controllers\CBController {
+	class AdminKrsController extends \crocodicstudio\crudbooster\controllers\CBController {
 
 	    public function cbInit() {
 
@@ -30,39 +19,37 @@
 			$this->button_table_action = true;
 			$this->button_bulk_action = true;
 			$this->button_action_style = "button_icon";
-			$this->button_add = false;
+			$this->button_add = true;
 			$this->button_edit = true;
 			$this->button_delete = true;
 			$this->button_detail = true;
 			$this->button_show = true;
 			$this->button_filter = true;
 			$this->button_import = false;
-			$this->button_export = true;
-			$this->table = "scanijazah";
+			$this->button_export = false;
+			$this->table = "krs";
 			# END CONFIGURATION DO NOT REMOVE THIS LINE
 
 			# START COLUMNS DO NOT REMOVE THIS LINE
 			$this->col = [];
 			$this->col[] = ["label"=>"nim","name"=>"nim"];
-			$this->col[] = ["label"=>"jenis_document","name"=>"jenis_document","join"=>"regex,name"];
-			$this->col[] = ["label"=>"no_document","name"=>"no_document"];
-			$this->col[] = ["label"=>"file","name"=>"file"];
+			$this->col[] = ["label"=>"nama","name"=>"nama"];
+			$this->col[] = ["label"=>"prodi","name"=>"prodi"];
+			$this->col[] = ["label"=>"kode_mk","name"=>"kode_mk"];
+			$this->col[] = ["label"=>"nama_mk","name"=>"nama_mk"];
+			$this->col[] = ["label"=>"bobot_mk","name"=>"bobot_mk"];
+			$this->col[] = ["label"=>"nilai_angka","name"=>"nilai_angka"];
+			$this->col[] = ["label"=>"nilai_huruf","name"=>"nilai_huruf"];
+			$this->col[] = ["label"=>"nilai_index","name"=>"nilai_index"];
 			# END COLUMNS DO NOT REMOVE THIS LINE
 
 			# START FORM DO NOT REMOVE THIS LINE
 			$this->form = [];
-			$this->form[] = ['label'=>'nim','name'=>'nim','type'=>'text','validation'=>'required|min:1|max:255','width'=>'col-sm-10'];
-			$this->form[] = ['label'=>'jenis document','name'=>'jenis_document','type'=>'text','validation'=>'required','width'=>'col-sm-9'];
-			$this->form[] = ['label'=>'no_document','name'=>'no_document','type'=>'text','validation'=>'required','width'=>'col-sm-9'];
-			$this->form[] = ['label'=>'file','name'=>'file','type'=>'upload','validation'=>'required','width'=>'col-sm-9'];
+
 			# END FORM DO NOT REMOVE THIS LINE
 
 			# OLD START FORM
 			//$this->form = [];
-			//$this->form[] = ['label'=>'nim','name'=>'nim','type'=>'text','validation'=>'required|min:1|max:255','width'=>'col-sm-10'];
-			//$this->form[] = ['label'=>'jenis document','name'=>'jenis_document','type'=>'text','validation'=>'required','width'=>'col-sm-9'];
-			//$this->form[] = ['label'=>'no_document','name'=>'no_document','type'=>'text','validation'=>'required','width'=>'col-sm-9'];
-			//$this->form[] = ['label'=>'file','name'=>'file','type'=>'upload','validation'=>'required','width'=>'col-sm-9'];
 			# OLD END FORM
 
 			/* 
@@ -129,8 +116,7 @@
 	        | 
 	        */
 	        $this->index_button = array();
-            $this->index_button[]= ["label"=>"add","url"=> "javascript:addScan()","icon" => "fa fa-bars"];
-            $this->index_button[]= ["label"=>"Multi Page","url"=> "javascript:addMultiPageScan()","icon" => "fa fa-bars"];
+
 
 
 	        /* 
@@ -163,18 +149,7 @@
 	        | $this->script_js = "function() { ... }";
 	        |
 	        */
-	        $this->script_js = '
-	        function addScan(){
-	            $("#modal-add").modal("show");
-	        }
-	        
-	        function addMultiPageScan(){
-	            $("#modal-add-multi").modal("show");
-	        }
-	        
-	        ';
-
-
+	        $this->script_js = NULL;
 
 
             /*
@@ -197,9 +172,8 @@
 	        | $this->post_index_html = "<p>test</p>";
 	        |
 	        */
-	        $this->post_index_html = view('scan/scan_add_view',["document" => DB::table("regex")->get(['id','name','regex'])])->render();
-
-
+	        $this->post_index_html = null;
+	        
 	        
 	        
 	        /*
@@ -284,7 +258,7 @@
 	    |
 	    */
 	    public function hook_before_add(&$postdata) {        
-	        echo "oke";
+	        //Your code here
 
 	    }
 
@@ -352,139 +326,135 @@
 
 
 	    //By the way, you can still create your own method in here... :) 
-        public function getAdd() {
-            //Create an Auth
-            if(!CRUDBooster::isCreate() && $this->global_privilege==FALSE || $this->button_add==FALSE) {
-                CRUDBooster::redirect(CRUDBooster::adminPath(),trans("crudbooster.denied_access"));
+
+        public function getExcel()
+        {
+            $files = Storage::files("excel");
+            $arr = array();
+            foreach ($files as $file){
+                $reader = new \PhpOffice\PhpSpreadsheet\Reader\Xls();
+                $file = Storage::path($file);
+                $spreadsheet = $reader->load($file);
+                $sheetData = $spreadsheet->getActiveSheet()->toArray();
+
+                if (!empty($sheetData)) {
+                    for ($i=9; $i<count($sheetData); $i++) {
+                        $nim = $sheetData[$i][1];
+                        $nama = $sheetData[$i][2];
+                        $prodi = $sheetData[$i][3];
+                        $kode_mk = $sheetData[$i][4];
+                        $nama_mk = $sheetData[$i][5];
+                        $bobot_mk = $sheetData[$i][6];
+                        $nilai_angka = $sheetData[$i][7];
+                        $nilai_huruf = $sheetData[$i][8];
+                        $nilai_index = $sheetData[$i][9];
+                        $arr[] = ["nim" => $nim,"nama" => $nama,"prodi" => $prodi,"kode_mk" => $kode_mk,"nama_mk"=>$nama_mk,"bobot_mk" => "1","nilai_angka" => "1","nilai_huruf" => $nilai_huruf,"nilai_index" => "1"];
+                    }
+                }
             }
+            $table = DB::table("krs")->insert($arr);
+        }
 
-            $data = [];
-            $data['document'] = DB::table("regex")->get(['id','name','regex']);
-            $data['page_title'] = 'Add Data';
+        public function getHtml()
+        {
+            $dom = new \DOMDocument();
+            $file = Storage::path("htm/laporan_exportkrs.xls");
+            $dom->loadHTMLFile($file) ;
+            $array=[];
+            $i=0;
+            $z =0;
+            foreach($dom->getElementsByTagName('tr') as $node)
+            {
+                $i++;
+                $x=0;
+                if($i> 10){
+                    foreach ($node->childNodes as $element){
+                        $x++;
+                        //$array[] = $element->nodeValue;
+                        //echo $element->nodeName;
+                        if($element->nodeName == "td"){
+                            foreach ($element->childNodes as $item){
+                                $z++;
+                                if($z = 1){
+                                    echo $item->nodeValue.":";
+                                }
 
-            //Please use cbView method instead view method from laravel
-            $this->cbView('scan/scan_add_view',$data);
+                            }
+
+                        }
+                    }
+                }
+
+            }
+            //dd($array);
+        }
+
+
+        public function getKrs()
+        {
+            $files = Storage::allFiles("krs");
+            foreach ($files as $file){
+                InsertKrs::dispatch($file);
+            }
+            echo "oke";
         }
 
         public function getTable()
         {
-            print_r(CRUDBooster::parseSqlTable("regex"));
-            dd(CRUDBooster::getTableColumns("regex"));
-            $db = DB::select("SELECT * FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = 'public' AND TABLE_CATALOG = 'laraboost' AND TABLE_NAME = 'regex'");
-            dd($db);
-        }
-
-        /**
-         *
-         * Regex no transkrip
-         * [0-9]+/[a-zA-Z]-[a-zA-Z]+/[a-zA-Z]\d-[a-zA-Z]+/[0-9]+
-         *
-         * Regex no Ijazah
-         *
-         * Regex nim
-         * [0-9]{11}
-         *
-         */
-        public function postAddSave()
-        {
-            $post_jenis = Request::input("jenis_document");
-            list($jenis_document,$regex) = explode("#",$post_jenis);
-            if (Request::hasFile('file_ijazah')) {
-                $file = Request::file('file_ijazah');
-                $ext = $file->getClientOriginalExtension();
-
-                $validator = Validator::make([
-                    'extension' => $ext,
-                ], [
-                    'extension' => 'in:pdf,PDF',
-                ]);
-
-                if ($validator->fails()) {
-                    $message = $validator->errors()->all();
-
-                    return redirect()->back()->with(['message' => implode('<br/>', $message), 'message_type' => 'warning']);
+            $file = Storage::path("htm/laporan_exportkrs.xls");
+            $table = $this->tables_to_array($file);
+            $arr=[];
+            $i=0;
+            foreach ($table[1] as $td){
+                $i++;
+                //if($i>2){
+                if(!empty($td)){
+                    $arr[] = [
+                        "nim" => trim($td[1]),
+                        "nama" => trim($td[2]),
+                        "prodi" => trim($td[3]),
+                        "kode_mk" => trim($td[4]),
+                        "nama_mk" => trim($td[5]),
+                        "bobot_mk" => floatval($td[6]),
+                        "nilai_angka" => floatval($td[7]),
+                        "nilai_huruf" => trim($td[8]),
+                        "nilai_index" => floatval($td[9])];
                 }
 
-                $filePath = 'uploads/scan/tmp';
-                $fileDest = 'uploads/scan/desc/'.$jenis_document;
-                Storage::makeDirectory($filePath);
-                Storage::makeDirectory($fileDest);
-
-                //Move file to storage
-                $filename = md5(str_random(5)) . '.' . $ext;
-                $url_filename = '';
-                if (Storage::putFileAs($filePath, $file, $filename)) {
-                    $url_filename = $filePath . '/' . $filename;
-                }
-
-                RenameFile::dispatch($url_filename,$regex,$jenis_document);
-
-                return CRUDBooster::redirect(CRUDBooster::mainPath(), trans('crudbooster.alert_success'));
-
-                //$url = CRUDBooster::mainpath('import-data').'?file='.base64_encode($url_filename);
-
-                //return redirect($url);
-            } else {
-                return redirect()->back();
             }
+            dd($arr);
+            //DB::table("krs")->insert($arr);
         }
 
-        public function getMulti()
-        {
-            $data = [];
-            $data['page_title'] = 'Add Multiple Pages';
-            $data['document'] = DB::table("regex")->get(['id','name','regex']);
+        function tables_to_array ($url) {
+            $htmlDocDom = new \DOMDocument();
 
-            //Please use cbView method instead view method from laravel
-            $this->cbView('scan/scan_multi_view',$data);
-        }
-
-        public function postAddMulti()
-        {
-            $page = Request::input("page");
-            $post_jenis = Request::input("jenis_document");
-            list($jenis_document,$regex) = explode("#",$post_jenis);
-            if (Request::hasFile('file_ijazah')) {
-                $file = Request::file('file_ijazah');
-                $ext = $file->getClientOriginalExtension();
-
-                $validator = Validator::make([
-                    'extension' => $ext,
-                ], [
-                    'extension' => 'in:pdf,PDF',
-                ]);
-
-                if ($validator->fails()) {
-                    $message = $validator->errors()->all();
-
-                    return redirect()->back()->with(['message' => implode('<br/>', $message), 'message_type' => 'warning']);
+            @$htmlDocDom->loadHTMLFile($url);
+            $htmlDocDom->preserveWhiteSpace = false;
+            $tableCounter = 0;
+            $htmlDocTableArray = array();
+            $htmlDocTables = $htmlDocDom->getElementsByTagName('table');
+            foreach ($htmlDocTables as $htmlDocTable) {
+                $htmlDocTableArray[$tableCounter] = array();
+                $htmlDocRows= $htmlDocTable->getElementsByTagName('tr');
+                $htmlDocRowCount = 0;
+                $htmlDocTableArray[$tableCounter] = array();
+                foreach ($htmlDocRows as $htmlDocRow) {
+                    if (strlen($htmlDocRow->nodeValue) > 1)
+                    {
+                        $htmlDocColCount = 0;
+                        $htmlDocTableArray[$tableCounter][$htmlDocRowCount] = array();
+                        $htmlDocCols = $htmlDocRow->getElementsByTagName('td');
+                        foreach ($htmlDocCols as $htmlDocCol) {
+                            $htmlDocTableArray[$tableCounter][$htmlDocRowCount][] = $htmlDocCol->nodeValue;
+                            $htmlDocColCount++;
+                        }
+                        $htmlDocRowCount++;
+                    }
                 }
-
-                $filePath = 'uploads/scan/tmp';
-                $fileDest = 'uploads/scan/split/'.$jenis_document;
-                Storage::makeDirectory($filePath);
-                Storage::makeDirectory($fileDest);
-
-                //Move file to storage
-                $filename = md5(str_random(5)).'.'.$ext;
-                $url_filename = '';
-                if (Storage::putFileAs($filePath, $file, $filename)) {
-                    $url_filename = $filePath.'/'.$filename;
-                }
-
-                $split = new \App\Lib\SplitDocument($url_filename, $page, $fileDest, $regex, $jenis_document);
-                $split->run();
-
-                return CRUDBooster::redirect(CRUDBooster::mainPath(), trans('crudbooster.alert_success'));
-
-            } else {
-                return redirect()->back();
+                if ($htmlDocRowCount > 1) $tableCounter++;
             }
+            return($htmlDocTableArray);
         }
 
-        public function postAddToken()
-        {
-
-        }
-
-    }
+	}

@@ -1,24 +1,11 @@
 <?php namespace App\Http\Controllers;
 
-	use App\Jobs\RenameFile;
-    use App\Jobs\SplitDocument;
-    use App\Lib\PDFSplitter;
-    use crocodicstudio\crudbooster\helpers\CB;
-    use Illuminate\Support\Facades\File;
-    use Illuminate\Support\Facades\Redirect;
-    use Imagick;
-    use setasign\Fpdi\Fpdi;
-    use Spatie\PdfToImage\Pdf as PdfImage;
-    use thiagoalessio\TesseractOCR\TesseractOCR;
-    use Illuminate\Support\Facades\Request;
-    use Illuminate\Support\Facades\Storage;
-    use Illuminate\Support\Facades\Validator;
-    use Session;
+	use Session;
+	use Request;
 	use DB;
 	use CRUDBooster;
-    use Spatie\PdfToText\Pdf;
 
-    class AdminScanijazahController extends \crocodicstudio\crudbooster\controllers\CBController {
+	class AdminLulusanController extends \crocodicstudio\crudbooster\controllers\CBController {
 
 	    public function cbInit() {
 
@@ -30,39 +17,35 @@
 			$this->button_table_action = true;
 			$this->button_bulk_action = true;
 			$this->button_action_style = "button_icon";
-			$this->button_add = false;
+			$this->button_add = true;
 			$this->button_edit = true;
 			$this->button_delete = true;
 			$this->button_detail = true;
 			$this->button_show = true;
 			$this->button_filter = true;
 			$this->button_import = false;
-			$this->button_export = true;
-			$this->table = "scanijazah";
+			$this->button_export = false;
+			$this->table = "lulusan";
 			# END CONFIGURATION DO NOT REMOVE THIS LINE
 
 			# START COLUMNS DO NOT REMOVE THIS LINE
 			$this->col = [];
+			$this->col[] = ["label"=>"nama","name"=>"nama"];
 			$this->col[] = ["label"=>"nim","name"=>"nim"];
-			$this->col[] = ["label"=>"jenis_document","name"=>"jenis_document","join"=>"regex,name"];
-			$this->col[] = ["label"=>"no_document","name"=>"no_document"];
-			$this->col[] = ["label"=>"file","name"=>"file"];
+			$this->col[] = ["label"=>"prodi","name"=>"prodi"];
+			$this->col[] = ["label"=>"id_pediode_yudisium","name"=>"id_periode_yudisium","join"=>"periode_yudisium,nama"];
 			# END COLUMNS DO NOT REMOVE THIS LINE
 
 			# START FORM DO NOT REMOVE THIS LINE
 			$this->form = [];
-			$this->form[] = ['label'=>'nim','name'=>'nim','type'=>'text','validation'=>'required|min:1|max:255','width'=>'col-sm-10'];
-			$this->form[] = ['label'=>'jenis document','name'=>'jenis_document','type'=>'text','validation'=>'required','width'=>'col-sm-9'];
-			$this->form[] = ['label'=>'no_document','name'=>'no_document','type'=>'text','validation'=>'required','width'=>'col-sm-9'];
-			$this->form[] = ['label'=>'file','name'=>'file','type'=>'upload','validation'=>'required','width'=>'col-sm-9'];
+			$this->form[] = ['label'=>'nama','name'=>'nama','type'=>'text','validation'=>'required','width'=>'col-sm-9'];
+			$this->form[] = ['label'=>'nim','name'=>'nim','type'=>'text','validation'=>'required','width'=>'col-sm-9'];
+			$this->form[] = ['label'=>'prodi','name'=>'prodi','type'=>'text','validation'=>'required','width'=>'col-sm-9'];
+			$this->form[] = ['label'=>'id_periode_yudisium','name'=>'id_periode_yudisium','type'=>'select2','validation'=>'required','width'=>'col-sm-9'];
 			# END FORM DO NOT REMOVE THIS LINE
 
 			# OLD START FORM
 			//$this->form = [];
-			//$this->form[] = ['label'=>'nim','name'=>'nim','type'=>'text','validation'=>'required|min:1|max:255','width'=>'col-sm-10'];
-			//$this->form[] = ['label'=>'jenis document','name'=>'jenis_document','type'=>'text','validation'=>'required','width'=>'col-sm-9'];
-			//$this->form[] = ['label'=>'no_document','name'=>'no_document','type'=>'text','validation'=>'required','width'=>'col-sm-9'];
-			//$this->form[] = ['label'=>'file','name'=>'file','type'=>'upload','validation'=>'required','width'=>'col-sm-9'];
 			# OLD END FORM
 
 			/* 
@@ -129,8 +112,7 @@
 	        | 
 	        */
 	        $this->index_button = array();
-            $this->index_button[]= ["label"=>"add","url"=> "javascript:addScan()","icon" => "fa fa-bars"];
-            $this->index_button[]= ["label"=>"Multi Page","url"=> "javascript:addMultiPageScan()","icon" => "fa fa-bars"];
+
 
 
 	        /* 
@@ -163,18 +145,7 @@
 	        | $this->script_js = "function() { ... }";
 	        |
 	        */
-	        $this->script_js = '
-	        function addScan(){
-	            $("#modal-add").modal("show");
-	        }
-	        
-	        function addMultiPageScan(){
-	            $("#modal-add-multi").modal("show");
-	        }
-	        
-	        ';
-
-
+	        $this->script_js = NULL;
 
 
             /*
@@ -197,9 +168,8 @@
 	        | $this->post_index_html = "<p>test</p>";
 	        |
 	        */
-	        $this->post_index_html = view('scan/scan_add_view',["document" => DB::table("regex")->get(['id','name','regex'])])->render();
-
-
+	        $this->post_index_html = null;
+	        
 	        
 	        
 	        /*
@@ -284,7 +254,7 @@
 	    |
 	    */
 	    public function hook_before_add(&$postdata) {        
-	        echo "oke";
+	        //Your code here
 
 	    }
 
@@ -352,139 +322,6 @@
 
 
 	    //By the way, you can still create your own method in here... :) 
-        public function getAdd() {
-            //Create an Auth
-            if(!CRUDBooster::isCreate() && $this->global_privilege==FALSE || $this->button_add==FALSE) {
-                CRUDBooster::redirect(CRUDBooster::adminPath(),trans("crudbooster.denied_access"));
-            }
 
-            $data = [];
-            $data['document'] = DB::table("regex")->get(['id','name','regex']);
-            $data['page_title'] = 'Add Data';
 
-            //Please use cbView method instead view method from laravel
-            $this->cbView('scan/scan_add_view',$data);
-        }
-
-        public function getTable()
-        {
-            print_r(CRUDBooster::parseSqlTable("regex"));
-            dd(CRUDBooster::getTableColumns("regex"));
-            $db = DB::select("SELECT * FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = 'public' AND TABLE_CATALOG = 'laraboost' AND TABLE_NAME = 'regex'");
-            dd($db);
-        }
-
-        /**
-         *
-         * Regex no transkrip
-         * [0-9]+/[a-zA-Z]-[a-zA-Z]+/[a-zA-Z]\d-[a-zA-Z]+/[0-9]+
-         *
-         * Regex no Ijazah
-         *
-         * Regex nim
-         * [0-9]{11}
-         *
-         */
-        public function postAddSave()
-        {
-            $post_jenis = Request::input("jenis_document");
-            list($jenis_document,$regex) = explode("#",$post_jenis);
-            if (Request::hasFile('file_ijazah')) {
-                $file = Request::file('file_ijazah');
-                $ext = $file->getClientOriginalExtension();
-
-                $validator = Validator::make([
-                    'extension' => $ext,
-                ], [
-                    'extension' => 'in:pdf,PDF',
-                ]);
-
-                if ($validator->fails()) {
-                    $message = $validator->errors()->all();
-
-                    return redirect()->back()->with(['message' => implode('<br/>', $message), 'message_type' => 'warning']);
-                }
-
-                $filePath = 'uploads/scan/tmp';
-                $fileDest = 'uploads/scan/desc/'.$jenis_document;
-                Storage::makeDirectory($filePath);
-                Storage::makeDirectory($fileDest);
-
-                //Move file to storage
-                $filename = md5(str_random(5)) . '.' . $ext;
-                $url_filename = '';
-                if (Storage::putFileAs($filePath, $file, $filename)) {
-                    $url_filename = $filePath . '/' . $filename;
-                }
-
-                RenameFile::dispatch($url_filename,$regex,$jenis_document);
-
-                return CRUDBooster::redirect(CRUDBooster::mainPath(), trans('crudbooster.alert_success'));
-
-                //$url = CRUDBooster::mainpath('import-data').'?file='.base64_encode($url_filename);
-
-                //return redirect($url);
-            } else {
-                return redirect()->back();
-            }
-        }
-
-        public function getMulti()
-        {
-            $data = [];
-            $data['page_title'] = 'Add Multiple Pages';
-            $data['document'] = DB::table("regex")->get(['id','name','regex']);
-
-            //Please use cbView method instead view method from laravel
-            $this->cbView('scan/scan_multi_view',$data);
-        }
-
-        public function postAddMulti()
-        {
-            $page = Request::input("page");
-            $post_jenis = Request::input("jenis_document");
-            list($jenis_document,$regex) = explode("#",$post_jenis);
-            if (Request::hasFile('file_ijazah')) {
-                $file = Request::file('file_ijazah');
-                $ext = $file->getClientOriginalExtension();
-
-                $validator = Validator::make([
-                    'extension' => $ext,
-                ], [
-                    'extension' => 'in:pdf,PDF',
-                ]);
-
-                if ($validator->fails()) {
-                    $message = $validator->errors()->all();
-
-                    return redirect()->back()->with(['message' => implode('<br/>', $message), 'message_type' => 'warning']);
-                }
-
-                $filePath = 'uploads/scan/tmp';
-                $fileDest = 'uploads/scan/split/'.$jenis_document;
-                Storage::makeDirectory($filePath);
-                Storage::makeDirectory($fileDest);
-
-                //Move file to storage
-                $filename = md5(str_random(5)).'.'.$ext;
-                $url_filename = '';
-                if (Storage::putFileAs($filePath, $file, $filename)) {
-                    $url_filename = $filePath.'/'.$filename;
-                }
-
-                $split = new \App\Lib\SplitDocument($url_filename, $page, $fileDest, $regex, $jenis_document);
-                $split->run();
-
-                return CRUDBooster::redirect(CRUDBooster::mainPath(), trans('crudbooster.alert_success'));
-
-            } else {
-                return redirect()->back();
-            }
-        }
-
-        public function postAddToken()
-        {
-
-        }
-
-    }
+	}

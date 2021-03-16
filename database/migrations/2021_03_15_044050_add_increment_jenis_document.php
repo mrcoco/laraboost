@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
 
-class AddTitle extends Migration
+class AddIncrementJenisDocument extends Migration
 {
     /**
      * Run the migrations.
@@ -13,8 +13,8 @@ class AddTitle extends Migration
      */
     public function up()
     {
-        Schema::table('regex', function (Blueprint $table) {
-            $table->string("title");
+        Schema::table('jenis_dokumen', function (Blueprint $table) {
+            $table->increments("id");
         });
     }
 
@@ -25,7 +25,7 @@ class AddTitle extends Migration
      */
     public function down()
     {
-        Schema::table('regex', function (Blueprint $table) {
+        Schema::table('jenis_document', function (Blueprint $table) {
             //
         });
     }
