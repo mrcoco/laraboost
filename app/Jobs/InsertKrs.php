@@ -9,12 +9,15 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class InsertKrs implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public $tries = 1;
+
+    public $timeout = 900;
 
     private $filename;
 
@@ -49,11 +52,11 @@ class InsertKrs implements ShouldQueue
                         "nama" => trim($td[2]),
                         "prodi" => trim($td[3]),
                         "kode_mk" => trim($td[4]),
-                        "nama_mk" => trim($td[5]),
-                        "bobot_mk" => floatval($td[6]),
-                        "nilai_angka" => floatval($td[7]),
+                        "nama_mk" => (isset($td[5])? $td[5] : ""),
+                        "bobot_mk" => (isset($td[6])?(floatval($td[6]) == 0)? "0": floatval($td[6]):"0"),
+                        "nilai_angka" => (isset($td[7])?(floatval($td[7]) == 0)? "0": floatval($td[7]):"0"),
                         "nilai_huruf" => trim($td[8]),
-                        "nilai_index" => floatval($td[9]),
+                        "nilai_index" => (isset($td[9])?(floatval($td[9]) == 0)? "0": floatval($td[9]):"0"),
                         "tahun" => $tahun,
                         "semester" => $semester];
                 }
@@ -63,7 +66,19 @@ class InsertKrs implements ShouldQueue
             $resultData = array_filter(array_map('array_filter', $arr));
             if(!empty($resultData)){
                 //print_r($arr);
-                DB::table("krs")->insert($resultData);
+                $collect = collect($resultData);
+                $chunk = $collect->chunk(1000);
+                foreach ($chunk as $item){
+                    DB::beginTransaction();
+                    try{
+                        DB::table("krs")->insert($item->toArray());
+                    }catch (\Exception $exception){
+                        DB::rollback();
+                    }
+                    DB::commit();
+
+                }
+
             }
         }
     }

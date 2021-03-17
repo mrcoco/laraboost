@@ -392,7 +392,7 @@
 
         public function getKrs()
         {
-            $files = Storage::allFiles("krs");
+            $files = Storage::allFiles("krs3");
             foreach ($files as $file){
                 InsertKrs::dispatch($file);
             }
@@ -401,29 +401,43 @@
 
         public function getTable()
         {
-            $file = Storage::path("htm/laporan_exportkrs.xls");
-            $table = $this->tables_to_array($file);
-            $arr=[];
-            $i=0;
-            foreach ($table[1] as $td){
-                $i++;
-                //if($i>2){
-                if(!empty($td)){
-                    $arr[] = [
-                        "nim" => trim($td[1]),
-                        "nama" => trim($td[2]),
-                        "prodi" => trim($td[3]),
-                        "kode_mk" => trim($td[4]),
-                        "nama_mk" => trim($td[5]),
-                        "bobot_mk" => floatval($td[6]),
-                        "nilai_angka" => floatval($td[7]),
-                        "nilai_huruf" => trim($td[8]),
-                        "nilai_index" => floatval($td[9])];
+            $file = "krs2/20151/laporan_exportkrs (49).xls";
+            list($krs_dir,$sem_dir,$f_name) = explode("/",$file);
+            list($tahun,$semester) = str_split($sem_dir,4);
+            $excel = Storage::path($file);
+            $table = $this->tables_to_array($excel);
+            $arr[] = [];
+            if(!empty($table)){
+                foreach ($table[1] as $td){
+                    if(!empty($td)){
+                        $arr[] = [
+                            "nim" => trim($td[1]),
+                            "nama" => trim($td[2]),
+                            "prodi" => trim($td[3]),
+                            "kode_mk" => trim($td[4]),
+                            "nama_mk" => (isset($td[5])? $td[5] : ""),
+                            "bobot_mk" => (isset($td[6])?(floatval($td[6]) == 0)? "00.00": floatval($td[6]):"00.00"),
+                            "nilai_angka" => (isset($td[7])?(floatval($td[7]) == 0)? "00.00": floatval($td[7]):"00.00"),
+                            "nilai_huruf" => trim($td[8]),
+                            "nilai_index" => (isset($td[9])?(floatval($td[9]) == 0)? "00.00": floatval($td[9]):"00.00"),
+                            "tahun" => $tahun,
+                            "semester" => $semester];
+                    }
+
                 }
 
+                $resultData = array_filter(array_map('array_filter', $arr));
+                if(!empty($resultData)){
+                    $collect = collect($resultData);
+                    $chunk = $collect->chunk(1000);
+                    echo "<pre>";
+                    foreach($chunk->toArray() as $item){
+                        dd($item);
+                    }
+                    echo "</pre>";
+//                    \Illuminate\Support\Facades\DB::table("krs")->insert($resultData);
+                }
             }
-            dd($arr);
-            //DB::table("krs")->insert($arr);
         }
 
         function tables_to_array ($url) {
