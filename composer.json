@@ -7,15 +7,16 @@
     "require": {
         "php": ">=7.0.0",
         "crocodicstudio/crudbooster": "5.5",
+        "fabpot/goutte": "^4.0",
         "fideloper/proxy": "~3.3",
         "guzzlehttp/guzzle": "7.0",
         "imanghafoori/laravel-widgetize": "1.8.*",
         "laravel/framework": "5.5.*",
         "laravel/tinker": "~1.0",
-        "spatie/pdf-to-image": "^2.1",
-        "spatie/pdf-to-text": "^1.2",
         "setasign/fpdf": "1.8.*",
         "setasign/fpdi": "^2.0",
+        "spatie/pdf-to-image": "^2.1",
+        "spatie/pdf-to-text": "^1.2",
         "thiagoalessio/tesseract_ocr": "^2.11",
         "unisharp/laravel-filemanager": "1.7.7"
     },

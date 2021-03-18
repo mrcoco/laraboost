@@ -355,41 +355,6 @@
             $table = DB::table("krs")->insert($arr);
         }
 
-        public function getHtml()
-        {
-            $dom = new \DOMDocument();
-            $file = Storage::path("htm/laporan_exportkrs.xls");
-            $dom->loadHTMLFile($file) ;
-            $array=[];
-            $i=0;
-            $z =0;
-            foreach($dom->getElementsByTagName('tr') as $node)
-            {
-                $i++;
-                $x=0;
-                if($i> 10){
-                    foreach ($node->childNodes as $element){
-                        $x++;
-                        //$array[] = $element->nodeValue;
-                        //echo $element->nodeName;
-                        if($element->nodeName == "td"){
-                            foreach ($element->childNodes as $item){
-                                $z++;
-                                if($z = 1){
-                                    echo $item->nodeValue.":";
-                                }
-
-                            }
-
-                        }
-                    }
-                }
-
-            }
-            //dd($array);
-        }
-
-
         public function getKrs()
         {
             $files = Storage::allFiles("krs3");
@@ -397,6 +362,46 @@
                 InsertKrs::dispatch($file);
             }
             echo "oke";
+        }
+
+        public function getMatakuliah()
+        {
+            //$files = Storage::allFiles("matakuliah");
+            //foreach ($files as $file){
+                //list($krs_dir,$sem_dir,$f_name) = explode("/",$file);
+                //list($tahun,$semester) = str_split($sem_dir,4);
+                $file  = "matakuliah/laporan_exportmatkul (1).xls";
+                $excel = Storage::path($file);
+                $table = $this->tables_to_array($excel);
+                $arr[] = [];
+                if(!empty($table)){
+                    foreach ($table[1] as $td){
+                        if(!empty($td)){
+                            $arr[] = [
+                                "kode_mk" => preg_replace("/[^a-zA-Z0-9]/", "", $td[1]),
+                                "nama_mk" => (isset($td[1])? preg_replace("/[^a-zA-Z0-9]+[\s]/", "",$td[2]) : ""),
+                                "bobot_mk" => (isset($td[3])?(floatval($td[3]) == 0)? "0": floatval($td[6]):"0"),
+                                "prodi_pengampu" => (isset($td[1])? preg_replace("/[^a-zA-Z0-9]+[\s]/", "",$td[2]) : ""),
+                                "jenis_mk" => (isset($td[1])? preg_replace("/[^a-zA-Z0-9]+[\s]/", "",$td[2]) : "")
+                            ];
+                        }
+
+                    }
+
+                    $resultData = array_filter(array_map('array_filter', $arr));
+                    if(!empty($resultData)){
+                        $collect = collect($resultData);
+                        $chunk = $collect->chunk(1000);
+                        echo "<pre>";
+                        foreach($chunk->toArray() as $item){
+                            dd($item);
+                        }
+                        echo "</pre>";
+//                    \Illuminate\Support\Facades\DB::table("krs")->insert($resultData);
+                    }
+                }
+            //}
+
         }
 
         public function getTable()
