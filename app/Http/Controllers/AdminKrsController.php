@@ -1,6 +1,7 @@
 <?php namespace App\Http\Controllers;
 
 	use App\Jobs\InsertKrs;
+    use App\Jobs\InsertMatakuliah;
     use Illuminate\Support\Facades\Storage;
     use Session;
 	use Request;
@@ -366,41 +367,10 @@
 
         public function getMatakuliah()
         {
-            //$files = Storage::allFiles("matakuliah");
-            //foreach ($files as $file){
-                //list($krs_dir,$sem_dir,$f_name) = explode("/",$file);
-                //list($tahun,$semester) = str_split($sem_dir,4);
-                $file  = "matakuliah/laporan_exportmatkul (1).xls";
-                $excel = Storage::path($file);
-                $table = $this->tables_to_array($excel);
-                $arr[] = [];
-                if(!empty($table)){
-                    foreach ($table[1] as $td){
-                        if(!empty($td)){
-                            $arr[] = [
-                                "kode_mk" => preg_replace("/[^a-zA-Z0-9]/", "", $td[1]),
-                                "nama_mk" => (isset($td[1])? preg_replace("/[^a-zA-Z0-9]+[\s]/", "",$td[2]) : ""),
-                                "bobot_mk" => (isset($td[3])?(floatval($td[3]) == 0)? "0": floatval($td[6]):"0"),
-                                "prodi_pengampu" => (isset($td[1])? preg_replace("/[^a-zA-Z0-9]+[\s]/", "",$td[2]) : ""),
-                                "jenis_mk" => (isset($td[1])? preg_replace("/[^a-zA-Z0-9]+[\s]/", "",$td[2]) : "")
-                            ];
-                        }
-
-                    }
-
-                    $resultData = array_filter(array_map('array_filter', $arr));
-                    if(!empty($resultData)){
-                        $collect = collect($resultData);
-                        $chunk = $collect->chunk(1000);
-                        echo "<pre>";
-                        foreach($chunk->toArray() as $item){
-                            dd($item);
-                        }
-                        echo "</pre>";
-//                    \Illuminate\Support\Facades\DB::table("krs")->insert($resultData);
-                    }
-                }
-            //}
+            $files = Storage::allFiles("matakuliah");
+            foreach ($files as $file){
+                InsertMatakuliah::dispatch($file);
+            }
 
         }
 
