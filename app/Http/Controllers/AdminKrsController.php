@@ -358,12 +358,18 @@
 
         public function getKrs()
         {
-            $files = Storage::allFiles("krs2/20142");
+            $files = Storage::allFiles("krs/20191");
             foreach ($files as $file){
 //                $file = "krs2/20141/laporan_exportkrs (46).xls";
                 InsertKrs::dispatch($file);
             }
             echo "oke";
+        }
+
+        public function getSingle()
+        {
+            $file = "krs3/20201/laporan_exportkrs (93).xls";
+            InsertKrs::dispatch($file);
         }
 
         public function getMatakuliah()
@@ -377,7 +383,7 @@
 
         public function getTable()
         {
-            $file = "krs2/20141/laporan_exportkrs - 2021-03-15T234225.604.xls";
+            $file = "krs3/20201/laporan_exportkrs (28).xls";
             list($krs_dir,$sem_dir,$f_name) = explode("/",$file);
             list($tahun,$semester) = str_split($sem_dir,4);
             $excel = Storage::path($file);
@@ -393,21 +399,26 @@
                         $nilai_angka = floatval($td[7]);
                         $nilai_index = floatval($td[9]);
                         $idrelasi = $nim.$kode_mk.$tahun.$semester;
-                        $arr[] = [
-                            "nim" => $nim,
-                            "nama" => trim($td[2]),
-                            "prodi" => trim($td[3]),
-                            "kode_mk" => preg_replace("/[^a-zA-Z0-9]/", "", $td[4]),
-                            "nama_mk" => (isset($td[5])? $td[5] : ""),
-                            "bobot_mk" => (isset($td[6]) ? ($bobot_mk == 0.0) ? "0.0": $bobot_mk : "0.0" ),
-                            //"bobot_mk" => (floatval($td[6]) ? floatval($td[6]) : "0.0" ),
-                            "nilai_angka" => (isset($td[7]) ? ($nilai_angka == 0.0) ? "0.0": $nilai_angka : "0.0" ),
-                            "nilai_huruf" => (isset($td[8]) ? ($nilai_huruf !== "" ? $nilai_huruf : "-" ) : "-"),
-                            "nilai_index" => (isset($td[9]) ? ($nilai_index == 0.0) ? "0.0": $nilai_index : "0.0" ),
-                            "tahun" => $tahun,
-                            "semester" => $semester,
-                            "idrelasi" => $idrelasi
-                        ];
+                        $cek = \Illuminate\Support\Facades\DB::table("pddikti_nilai_feeder")->where('nim',$nim)
+                            ->where('kode_mk',$kode_mk)
+                            ->where('tahun',$tahun)->where('semester',$semester)->first();
+                        if(!$cek){
+                            $arr[] = [
+                                "nim" => $nim,
+                                "nama" => trim($td[2]),
+                                "prodi" => trim($td[3]),
+                                "kode_mk" => preg_replace("/[^a-zA-Z0-9]/", "", $td[4]),
+                                "nama_mk" => (isset($td[5])? $td[5] : ""),
+                                "bobot_mk" => (isset($td[6]) ? ($bobot_mk == 0.0) ? "0.0": $bobot_mk : "0.0" ),
+                                //"bobot_mk" => (floatval($td[6]) ? floatval($td[6]) : "0.0" ),
+                                "nilai_angka" => (isset($td[7]) ? ($nilai_angka == 0.0) ? "0.0": $nilai_angka : "0.0" ),
+                                "nilai_huruf" => (isset($td[8]) ? ($nilai_huruf !== "" ? $nilai_huruf : "-" ) : "-"),
+                                "nilai_index" => (isset($td[9]) ? ($nilai_index == 0.0) ? "0.0": $nilai_index : "0.0" ),
+                                "tahun" => $tahun,
+                                "semester" => $semester,
+                                "idrelasi" => $idrelasi
+                            ];
+                        }
                     }
 
                 }
@@ -416,9 +427,11 @@
                 if(!empty($resultData)){
                     //print_r($arr);
                     $collect = collect($resultData);
-                    $chunk = $collect->chunk(1000);
+                    $chunk = $collect->unique('idrelasi')->chunk(1000);
                     foreach ($chunk as $item){
+                        //echo "<pre>";
                         dd($item->toArray());
+                        //echo "</pre>";
                     }
 
                 }
