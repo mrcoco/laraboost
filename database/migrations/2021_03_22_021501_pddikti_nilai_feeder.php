@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
 
-class Krs extends Migration
+class PddiktiNilaiFeeder extends Migration
 {
     /**
      * Run the migrations.
@@ -13,6 +13,7 @@ class Krs extends Migration
      */
     public function up()
     {
+        Schema::dropIfExists('pddikti_nilai_feeder');
         Schema::create('pddikti_nilai_feeder', function (Blueprint $table) {
             $table->increments('id');
             $table->string("nim",11);

@@ -19,7 +19,7 @@ class InsertMatakuliah implements ShouldQueue
     /**
      * Create a new job instance.
      *
-     * @return void
+     * @param $file
      */
     public function __construct($file)
     {
@@ -41,12 +41,17 @@ class InsertMatakuliah implements ShouldQueue
             if(isset($table[1])){
                 foreach ($table[1] as $td){
                     if(!empty($td)){
+                        $kode_mk = preg_replace("/[^a-zA-Z0-9]/", "", $td[1]);
+                        $bobot_mk = floatval($td[3]);
+                        $nama_mk = preg_replace("/[^a-zA-Z0-9]+[\s]/", "",$td[2]);
+                        $prodi = preg_replace("/[^a-zA-Z0-9]+[\s]/", "",$td[4]);
+                        $jenis_mk = preg_replace("/[^a-zA-Z0-9]+[\s]/", "",$td[5]);
                         $arr[] = [
-                            "kode_mk" => (isset($td[1]) ? preg_replace("/[^a-zA-Z0-9]/", "", $td[1]): ""),
-                            "nama_mk" => (isset($td[2])? preg_replace("/[^a-zA-Z0-9]+[\s]/", "",$td[2]) : ""),
-                            "bobot_mk" => (isset($td[3])? (floatval($td[3]) == 0)? "0": floatval($td[3]):"0"),
-                            "prodi_pengampu" => (isset($td[4])? preg_replace("/[^a-zA-Z0-9]+[\s]/", "",$td[4]) : ""),
-                            "jenis_mk" => (isset($td[5])? preg_replace("/[^a-zA-Z0-9]+[\s]/", "",$td[5]) : "")
+                            "kode_mk" => (isset($td[1])? ($kode_mk !== "" ? $kode_mk : "-"): "-"),
+                            "nama_mk" => (isset($td[2])? ($nama_mk !== "" ? $nama_mk : "-") : "-"),
+                            "bobot_mk" => (isset($td[3])? ($bobot_mk == 0.0 ? "0.0": $bobot_mk):"0.0"),
+                            "prodi_pengampu" => (isset($td[4])? ($prodi !== "" ? $prodi : "-" ) : "-"),
+                            "jenis_mk" => (isset($td[5])? ($jenis_mk !== "" ? $jenis_mk : "-") : "-")
                         ];
                     }
 
@@ -57,13 +62,13 @@ class InsertMatakuliah implements ShouldQueue
                     $collect = collect($resultData);
                     $chunk = $collect->chunk(1000);
                     foreach($chunk as $item){
-                        DB::beginTransaction();
-                        try{
+                        //DB::beginTransaction();
+                        //try{
                             DB::table("pddikti_matakuliah_feeder")->insert($item->toArray());
-                        }catch (\Exception $exception){
-                            DB::rollback();
-                        }
-                        DB::commit();
+                        //}catch (\Exception $exception){
+                        //    DB::rollback();
+                        //}
+                        //DB::commit();
                     }
                 }
             }
