@@ -358,7 +358,7 @@
 
         public function getKrs()
         {
-            $files = Storage::allFiles("krs/20191");
+            $files = Storage::allFiles("krs/20161");
             foreach ($files as $file){
 //                $file = "krs2/20141/laporan_exportkrs (46).xls";
                 InsertKrs::dispatch($file);
